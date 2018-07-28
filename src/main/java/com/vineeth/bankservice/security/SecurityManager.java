@@ -50,18 +50,20 @@ public class SecurityManager {
         throw new Exception("Authentication failed for bank user");
     }
 
-    public void authorizeForAdmin(String accessToken) throws Exception {
+    public String authorizeForAdmin(String accessToken) throws Exception {
         AuthorizePayload payload = objectMapper.readValue(verifyJWTToken(accessToken), AuthorizePayload.class);
         if(!payload.getScopes().equals(SecurityConstants.ADMIN_SCOPES)) {
             throw new Exception("Authorization for admin failed");
         }
+        return payload.getUsername();
     }
 
-    public void authorizeForUser(String accessToken) throws Exception {
+    public String authorizeForUser(String accessToken) throws Exception {
         AuthorizePayload payload = objectMapper.readValue(verifyJWTToken(accessToken), AuthorizePayload.class);
         if(!payload.getScopes().equals(SecurityConstants.USER_SCOPES)) {
             throw new Exception("Authorization for user failed");
         }
+        return payload.getUsername();
     }
 
     private boolean checkAdminCredentials(AuthenticationRequest request) {
@@ -70,9 +72,11 @@ public class SecurityManager {
     }
 
     private boolean checkUserCredentials(AuthenticationRequest request) {
-        AuthenticationRequest requestFromBankStore = bankStore.getAuthenticationDetailsOfUser(request.getUsername());
-        return requestFromBankStore != null && request.getUsername().equals(requestFromBankStore.getUsername()) &&
-                bCryptPasswordEncoder.matches(request.getPassword(), requestFromBankStore.getPassword());
+        AuthenticationDetails authenticationDetailsOfUser =
+                bankStore.getAuthenticationDetailsOfUser(request.getUsername());
+        return authenticationDetailsOfUser != null &&
+                request.getUsername().equals(authenticationDetailsOfUser.getUsername()) &&
+                bCryptPasswordEncoder.matches(request.getPassword(), authenticationDetailsOfUser.getPassword());
     }
 
     private String generatePayloadForJWT(AuthenticationRequest request, String scopes) throws JsonProcessingException {

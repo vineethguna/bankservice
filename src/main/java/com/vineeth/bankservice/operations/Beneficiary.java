@@ -1,7 +1,7 @@
-package com.vineeth.bankservice.user;
+package com.vineeth.bankservice.operations;
 
 
-public class User {
+public class Beneficiary {
     private String username;
     private String accountId;
 

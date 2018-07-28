@@ -16,10 +16,24 @@ public class UserManager {
         this.bCryptPasswordEncoder = bCryptPasswordEncoder;
     }
 
-    public void addUser(UserRequest userRequest) throws Exception {
+    public User addUser(UserRequest userRequest) throws Exception {
         userRequest.setPassword(bCryptPasswordEncoder.encode(userRequest.getPassword()));
-        if(!bankStore.addUser(userRequest)) {
+        String accountId = bankStore.addUser(userRequest.getUsername(), userRequest.getPassword(),
+                userRequest.getBalance());
+        if(accountId == null) {
             throw new Exception("User already exists");
         }
+        User user = new User();
+        user.setUsername(userRequest.getUsername());
+        user.setAccountId(accountId);
+        return user;
+    }
+
+    public User getUserDetails(String username) throws Exception {
+        User user = bankStore.getUserDetails(username);
+        if(user == null) {
+            throw new Exception("Given user does not exist");
+        }
+        return user;
     }
 }
