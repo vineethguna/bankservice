@@ -1,6 +1,7 @@
 package com.vineeth.bankservice.controllers;
 
 import com.vineeth.bankservice.security.SecurityManager;
+import com.vineeth.bankservice.user.User;
 import com.vineeth.bankservice.user.UserManager;
 import com.vineeth.bankservice.user.UserRequest;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,9 +20,16 @@ public class UserController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public void createUser(@RequestBody UserRequest user, @RequestHeader("Authorization") String authHeader)
+    public User createUser(@RequestBody UserRequest user, @RequestHeader("Authorization") String accessToken)
             throws Exception {
-        securityManager.authorizeForAdmin(authHeader);
-        userManager.addUser(user);
+        securityManager.authorizeForAdmin(accessToken);
+        return userManager.addUser(user);
+    }
+
+    @RequestMapping("/{username}")
+    public User getUserDetails(@PathVariable("username") String username,
+                               @RequestHeader("Authorization") String accessToken) throws Exception {
+        securityManager.authorizeForUser(accessToken);
+        return userManager.getUserDetails(username);
     }
 }
