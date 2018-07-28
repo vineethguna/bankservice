@@ -1,0 +1,27 @@
+package com.vineeth.bankservice.controllers;
+
+import com.vineeth.bankservice.security.SecurityManager;
+import com.vineeth.bankservice.user.UserManager;
+import com.vineeth.bankservice.user.UserRequest;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/user")
+public class UserController {
+
+    @Autowired
+    private SecurityManager securityManager;
+
+    @Autowired
+    private UserManager userManager;
+
+    @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
+    public void createUser(@RequestBody UserRequest user, @RequestHeader("Authorization") String authHeader)
+            throws Exception {
+        securityManager.authorizeForAdmin(authHeader);
+        userManager.addUser(user);
+    }
+}
