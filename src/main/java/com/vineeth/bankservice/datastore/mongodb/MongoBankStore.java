@@ -10,8 +10,9 @@ import com.mongodb.client.result.UpdateResult;
 import com.vineeth.bankservice.EnvironmentConstants;
 import com.vineeth.bankservice.datastore.IBankStore;
 import com.vineeth.bankservice.operations.Beneficiary;
-import com.vineeth.bankservice.operations.Transaction;
-import com.vineeth.bankservice.operations.TransactionState;
+import com.vineeth.bankservice.operations.transactions.Transaction;
+import com.vineeth.bankservice.operations.transactions.TransactionResult;
+import com.vineeth.bankservice.operations.transactions.TransactionStates;
 import com.vineeth.bankservice.security.AuthenticationDetails;
 import com.vineeth.bankservice.user.User;
 import org.bson.Document;
@@ -48,73 +49,10 @@ public class MongoBankStore implements IBankStore {
         UpdateResult result = collection.updateOne(Filters.eq(SchemaFields.Account.USERNAME, username),
                 update, options);
         if(result.getUpsertedId() != null) {
-            return result.getUpsertedId().toString();
+            return result.getUpsertedId().asObjectId().toString();
         }
         return null;
     }
-
-//    @Override
-//    public Transaction transferMoneyToBeneficiary(String username, Transaction transaction) {
-//        if(acquireBeneficiaryLock(username)) {
-//            transaction.setStateToInProgress();
-//            Document transactionDebitDocument = new Document()
-//                    .append(SchemaFields.Transaction.AMOUNT, transaction.getAmount())
-//                    .append(SchemaFields.Transaction.DEBIT, true)
-//                    .append(SchemaFields.Transaction.STATE, transaction.getState())
-//                    .append(SchemaFields.Transaction.TRANSACTION_ID, transaction.getId())
-//                    .append(SchemaFields.Transaction.USERNAME, transaction.getUsername());
-//            Document updateDebitDocument = new Document("$inc",
-//                    new Document(SchemaFields.Account.BALANCE, -1 * transaction.getAmount()))
-//                    .append("$push", new Document(SchemaFields.Account.TRANSACTIONS, transactionDebitDocument));
-//            UpdateResult updateDebitResult = collection.updateOne(Filters.and(Filters.eq(SchemaFields.Account.USERNAME, username),
-//                    Filters.gte(SchemaFields.Account.BALANCE, transaction.getAmount())), updateDebitDocument);
-//            if(updateDebitResult.isModifiedCountAvailable() && updateDebitResult.getModifiedCount() == 0) {
-//                transaction.setStateToFailed();
-//                transaction.setDescription("Not enough amount available to transfer");
-//                releaseBeneficiaryLock(username);
-//                return transaction;
-//            }
-//
-//            transaction.setStateToCompleted();
-//            Document transactionCreditDocument = new Document()
-//                    .append(SchemaFields.Transaction.AMOUNT, transaction.getAmount())
-//                    .append(SchemaFields.Transaction.DEBIT, false)
-//                    .append(SchemaFields.Transaction.STATE, transaction.getState())
-//                    .append(SchemaFields.Transaction.TRANSACTION_ID, transaction.getId())
-//                    .append(SchemaFields.Transaction.USERNAME, username);
-//            Document updateCreditDocument = new Document("$inc",
-//                    new Document(SchemaFields.Account.BALANCE, transaction.getAmount()))
-//                    .append("$push", new Document(SchemaFields.Account.TRANSACTIONS, transactionCreditDocument));
-//            UpdateResult updateCreditResult = collection.updateOne(
-//                    Filters.eq(SchemaFields.Account.USERNAME, transaction.getUsername()), updateCreditDocument);
-//            if(updateCreditResult.isModifiedCountAvailable() && updateCreditResult.getModifiedCount() == 0) {
-//                transaction.setStateToFailed();
-//                transaction.setDescription("Failed to credit destination user account");
-//                releaseBeneficiaryLock(username);
-//                return transaction;
-//            }
-//
-//            Document updateState = new Document("$set",
-//                    new Document(SchemaFields.Account.TRANSACTIONS + ".$." + SchemaFields.Transaction.STATE,
-//                            transaction.getState()));
-//            UpdateResult updateStateResult = collection.updateOne(
-//                    Filters.and(Filters.eq(SchemaFields.Account.USERNAME, username), Filters.eq(
-//                            SchemaFields.Account.TRANSACTIONS + "." + SchemaFields.Transaction.TRANSACTION_ID,
-//                            transaction.getId())), updateState);
-//            if(updateStateResult.isModifiedCountAvailable() && updateStateResult.getModifiedCount() == 0) {
-//                transaction.setStateToFailed();
-//                transaction.setDescription("Failed to change transaction state to completed for source user account");
-//                releaseBeneficiaryLock(username);
-//                return transaction;
-//            }
-//            transaction.setDescription("Successfully completed transaction");
-//            releaseBeneficiaryLock(username);
-//        } else {
-//            transaction.setStateToFailed();
-//            transaction.setDescription("Could not complete transaction due to internal error");
-//        }
-//        return transaction;
-//    }
 
     @Override
     public boolean addBeneficiaryForUser(String username, Beneficiary beneficiary) {
@@ -155,18 +93,19 @@ public class MongoBankStore implements IBankStore {
 
     @Override
     public boolean acquireLockForUser(String username) {
-        Document updateDocument = new Document(SchemaFields.Account.BENEFICIARY_LOCK, true);
-        Document document = collection.findOneAndUpdate(Filters.and(Filters.eq(SchemaFields.Account.USERNAME, username),
-                Filters.eq(SchemaFields.Account.BENEFICIARY_LOCK, false)), updateDocument);
-        return document != null && document.getBoolean(SchemaFields.Account.BENEFICIARY_LOCK);
+        Document updateDocument = new Document("$set", new Document(SchemaFields.Account.BENEFICIARY_LOCK, true));
+        Document filter = new Document(SchemaFields.Account.USERNAME, username)
+                .append(SchemaFields.Account.BENEFICIARY_LOCK, false);
+        UpdateResult updateResult = collection.updateOne(filter, updateDocument);
+        return updateResult.isModifiedCountAvailable() && updateResult.getModifiedCount() == 1;
     }
 
     @Override
     public boolean releaseLockForUser(String username) {
-        Document updateDocument = new Document(SchemaFields.Account.BENEFICIARY_LOCK, false);
-        Document document = collection.findOneAndUpdate(Filters.eq(SchemaFields.Account.USERNAME, username),
+        Document updateDocument = new Document("$set", new Document(SchemaFields.Account.BENEFICIARY_LOCK, false));
+        UpdateResult updateResult = collection.updateOne(Filters.eq(SchemaFields.Account.USERNAME, username),
                 updateDocument);
-        return document != null && !document.getBoolean(SchemaFields.Account.BENEFICIARY_LOCK);
+        return updateResult.isModifiedCountAvailable() && updateResult.getModifiedCount() == 1;
     }
 
     @Override
@@ -193,69 +132,97 @@ public class MongoBankStore implements IBankStore {
     }
 
     @Override
-    public TransactionState addDebitTransactionForUser(String username, Transaction transaction) {
-        TransactionState result;
+    public TransactionResult addDebitTransactionForUser(String username, Transaction transaction) {
+        TransactionResult result = new TransactionResult();
         Document transactionDebitDocument = new Document()
                 .append(SchemaFields.Transaction.AMOUNT, transaction.getAmount())
                 .append(SchemaFields.Transaction.DEBIT, true)
                 .append(SchemaFields.Transaction.STATE, transaction.getState())
                 .append(SchemaFields.Transaction.TRANSACTION_ID, transaction.getId())
-                .append(SchemaFields.Transaction.USERNAME, transaction.getUsername());
+                .append(SchemaFields.Transaction.USERNAME, transaction.getDestinationUsername());
         Document updateDebitDocument = new Document("$inc",
                 new Document(SchemaFields.Account.BALANCE, -1 * transaction.getAmount()))
                 .append("$push", new Document(SchemaFields.Account.TRANSACTIONS, transactionDebitDocument));
-        UpdateResult updateDebitResult = collection.updateOne(Filters.and(Filters.eq(SchemaFields.Account.USERNAME, username),
+        UpdateResult updateDebitResult = collection.updateOne(Filters.and(Filters.eq(SchemaFields.Account.USERNAME,
+                username),
                 Filters.gte(SchemaFields.Account.BALANCE, transaction.getAmount())), updateDebitDocument);
         if(updateDebitResult.isModifiedCountAvailable() && updateDebitResult.getModifiedCount() == 0) {
-            result = TransactionState.FAILED;
-            result.setDescription("Not enough amount available to transfer");
+            result.setState(TransactionStates.FAILED);
+            result.setErrorDescription("Not enough amount available to transfer");
         } else {
-            result = TransactionState.COMPLETED;
+            result.setState(TransactionStates.COMPLETED);
         }
         return result;
     }
 
     @Override
-    public TransactionState addCreditTransactionForUser(String username, Transaction transaction) {
-        TransactionState result;
+    public TransactionResult addCreditTransactionForUser(String username, Transaction transaction) {
+        TransactionResult result = new TransactionResult();
         Document transactionCreditDocument = new Document()
                 .append(SchemaFields.Transaction.AMOUNT, transaction.getAmount())
                 .append(SchemaFields.Transaction.DEBIT, false)
                 .append(SchemaFields.Transaction.STATE, transaction.getState())
                 .append(SchemaFields.Transaction.TRANSACTION_ID, transaction.getId())
-                .append(SchemaFields.Transaction.USERNAME, username);
+                .append(SchemaFields.Transaction.USERNAME, transaction.getSourceUsername());
         Document updateCreditDocument = new Document("$inc",
                 new Document(SchemaFields.Account.BALANCE, transaction.getAmount()))
                 .append("$push", new Document(SchemaFields.Account.TRANSACTIONS, transactionCreditDocument));
         UpdateResult updateCreditResult = collection.updateOne(
-                Filters.eq(SchemaFields.Account.USERNAME, transaction.getUsername()), updateCreditDocument);
+                Filters.eq(SchemaFields.Account.USERNAME, username), updateCreditDocument);
         if(updateCreditResult.isModifiedCountAvailable() && updateCreditResult.getModifiedCount() == 0) {
-            result = TransactionState.FAILED;
-            result.setDescription("Failed to credit destination user account");
+            result.setState(TransactionStates.FAILED);
+            result.setErrorDescription("Failed to credit destination user account");
         } else {
-            result = TransactionState.COMPLETED;
+            result.setState(TransactionStates.COMPLETED);
         }
         return result;
     }
 
     @Override
-    public TransactionState changeTransactionStateForUser(String username, String transactionId,
-                                                          TransactionState state) {
-        TransactionState result;
+    public TransactionResult changeTransactionStateForUser(String username, String transactionId,
+                                                           String state) {
+        TransactionResult result = new TransactionResult();
         Document updateState = new Document("$set",
-                new Document(SchemaFields.Account.TRANSACTIONS + ".$." + SchemaFields.Transaction.STATE,
-                        state.toString()));
+                new Document(SchemaFields.Account.TRANSACTIONS + ".$." + SchemaFields.Transaction.STATE, state));
         UpdateResult updateStateResult = collection.updateOne(
                 Filters.and(Filters.eq(SchemaFields.Account.USERNAME, username), Filters.eq(
                         SchemaFields.Account.TRANSACTIONS + "." + SchemaFields.Transaction.TRANSACTION_ID,
                         transactionId)), updateState);
         if(updateStateResult.isModifiedCountAvailable() && updateStateResult.getModifiedCount() == 0) {
-            result = TransactionState.FAILED;
-            result.setDescription("Failed to change transaction state to completed for source user account");
+            result.setState(TransactionStates.FAILED);
+            result.setErrorDescription("Failed to change transaction state to completed for source user account");
         } else {
-            result = TransactionState.COMPLETED;
+            result.setState(TransactionStates.COMPLETED);
         }
         return result;
+    }
+
+    @Override
+    public List<Transaction> listTransactionsForUser(String username) {
+        Document document = collection.find(new Document(SchemaFields.Account.USERNAME, username))
+                .projection(Projections.include(SchemaFields.Account.TRANSACTIONS)).first();
+        if(document != null) {
+            List<Transaction> transactions = new ArrayList<>();
+            List<Document> transactionDocuments = (List<Document>) document.get(SchemaFields.Account.TRANSACTIONS);
+            for(Document transactionDocument: transactionDocuments) {
+                Transaction newTransaction = new Transaction();
+                newTransaction.setAmount(transactionDocument.getLong(SchemaFields.Transaction.AMOUNT));
+                newTransaction.setId(transactionDocument.getString(SchemaFields.Transaction.TRANSACTION_ID));
+                newTransaction.setDebitTransaction(transactionDocument.getBoolean(SchemaFields.Transaction.DEBIT));
+                if(newTransaction.isDebitTransaction()) {
+                    newTransaction.setSourceUsername(username);
+                    newTransaction.setDestinationUsername(
+                            transactionDocument.getString(SchemaFields.Transaction.USERNAME));
+                } else {
+                    newTransaction.setSourceUsername(transactionDocument.getString(SchemaFields.Transaction.USERNAME));
+                    newTransaction.setDestinationUsername(username);
+                }
+                newTransaction.setState(transactionDocument.getString(SchemaFields.Transaction.STATE));
+                transactions.add(newTransaction);
+            }
+            return transactions;
+        }
+        return null;
     }
 
     @Override

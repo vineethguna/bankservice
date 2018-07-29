@@ -1,18 +1,17 @@
-package com.vineeth.bankservice.operations;
+package com.vineeth.bankservice.operations.transactions;
 
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
-
-public class Transaction {
+public class Transaction implements Cloneable {
     private long amount;
     private boolean isDebitTransaction;
-    private String username;
+    private String sourceUsername;
+    private String destinationUsername;
     private String id;
-    private TransactionState state;
+    private String state;
     private String description;
 
     public Transaction() {
-        setState(TransactionState.STARTED);
+        setState(TransactionStates.STARTED);
     }
 
     public long getAmount() {
@@ -31,14 +30,6 @@ public class Transaction {
         isDebitTransaction = debitTransaction;
     }
 
-    public String getUsername() {
-        return username;
-    }
-
-    public void setUsername(String username) {
-        this.username = username;
-    }
-
     public String getId() {
         return id;
     }
@@ -47,21 +38,39 @@ public class Transaction {
         this.id = id;
     }
 
-    @JsonIgnore
     public void setDescription(String description) {
         this.description = description;
     }
 
-    @JsonIgnore
     public String getDescription() {
         return description;
     }
 
     public String getState() {
-        return state.getState();
+        return state;
     }
 
-    public void setState(TransactionState state) {
+    public void setState(String state) {
         this.state = state;
+    }
+
+    public String getSourceUsername() {
+        return sourceUsername;
+    }
+
+    public void setSourceUsername(String sourceUsername) {
+        this.sourceUsername = sourceUsername;
+    }
+
+    public String getDestinationUsername() {
+        return destinationUsername;
+    }
+
+    public void setDestinationUsername(String destinationUsername) {
+        this.destinationUsername = destinationUsername;
+    }
+
+    public Transaction clone() throws CloneNotSupportedException {
+        return (Transaction) super.clone();
     }
 }

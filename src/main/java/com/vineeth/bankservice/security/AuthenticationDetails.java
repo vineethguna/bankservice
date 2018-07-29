@@ -1,8 +1,5 @@
 package com.vineeth.bankservice.security;
 
-/**
- * Created by guna on 28/07/18.
- */
 public class AuthenticationDetails {
     private String username;
     private String password;
