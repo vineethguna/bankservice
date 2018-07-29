@@ -2,8 +2,8 @@ package com.vineeth.bankservice.datastore;
 
 
 import com.vineeth.bankservice.operations.Beneficiary;
-import com.vineeth.bankservice.operations.Transaction;
-import com.vineeth.bankservice.operations.TransactionState;
+import com.vineeth.bankservice.operations.transactions.Transaction;
+import com.vineeth.bankservice.operations.transactions.TransactionResult;
 import com.vineeth.bankservice.security.AuthenticationDetails;
 import com.vineeth.bankservice.user.User;
 
@@ -14,9 +14,10 @@ public interface IBankStore {
     AuthenticationDetails getAuthenticationDetailsOfUser(String username);
 
     // Transaction Data Store APIs
-    TransactionState addDebitTransactionForUser(String username, Transaction transaction);
-    TransactionState addCreditTransactionForUser(String username, Transaction transaction);
-    TransactionState changeTransactionStateForUser(String username, String transactionId, TransactionState state);
+    TransactionResult addDebitTransactionForUser(String username, Transaction transaction);
+    TransactionResult addCreditTransactionForUser(String username, Transaction transaction);
+    TransactionResult changeTransactionStateForUser(String username, String transactionId, String state);
+    List<Transaction> listTransactionsForUser(String username);
 
     // Beneficiary Data Store APIs
     boolean addBeneficiaryForUser(String username, Beneficiary beneficiary);
