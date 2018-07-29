@@ -29,7 +29,8 @@ public class MongoBankStore implements IBankStore {
     private MongoCollection<Document> collection;
 
     public MongoBankStore() throws Exception {
-        mongoClient = new MongoClient();
+        mongoClient = new MongoClient(System.getenv(EnvironmentConstants.MONGO_HOST),
+                Integer.parseInt(System.getenv(EnvironmentConstants.MONGO_PORT)));
         mongoDatabase = mongoClient.getDatabase(System.getenv(EnvironmentConstants.MONGO_DATABASE));
         collection = mongoDatabase.getCollection(System.getenv(EnvironmentConstants.MONGO_COLLECTION));
     }

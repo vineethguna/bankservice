@@ -1,0 +1,10 @@
+FROM java:8-jdk-alpine
+
+RUN mkdir -p /opt/bankservice
+ENV PROJECT_HOME /opt/bankservice
+
+COPY target/bankservice-*.jar $PROJECT_HOME/bankservice.jar
+
+WORKDIR $PROJECT_HOME
+
+CMD ["java", "-jar", "./bankservice.jar"]

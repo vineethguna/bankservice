@@ -1,0 +1,28 @@
+version: '3'
+services:
+  bankservice:
+    image: vineethguna/bankservice-server
+    restart: always
+    container_name: bankservice-server
+    ports:
+      - "8888:8888"
+    environment:
+      - ADMIN_USERNAME=admin
+      - ADMIN_PASSWORD=admin123
+      - JWT_SECRET=hjgfhgesfgekufg
+      - MONGO_HOST=bankservice-mongo
+      - MONGO_PORT=27017
+      - MONGO_DATABASE=bankstore
+      - MONGO_COLLECTION=accounts
+    depends_on:
+      - mongo
+
+  mongo:
+    image: vineethguna/bankservice-mongo
+    container_name: bankservice-mongo
+    volumes:
+      - ./data/db:/data/db
+      - ./data/bkp:/data/bkp
+    environment:
+      - MONGO_INITDB_DATABASE=bankstore
+    restart: always
