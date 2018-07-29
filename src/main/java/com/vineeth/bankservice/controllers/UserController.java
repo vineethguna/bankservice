@@ -26,7 +26,7 @@ public class UserController {
         return userManager.addUser(user);
     }
 
-    @RequestMapping("/{username}")
+    @RequestMapping(value = "/{username}", method = RequestMethod.GET)
     public User getUserDetails(@PathVariable("username") String username,
                                @RequestHeader("Authorization") String accessToken) throws Exception {
         securityManager.authorizeForUser(accessToken);

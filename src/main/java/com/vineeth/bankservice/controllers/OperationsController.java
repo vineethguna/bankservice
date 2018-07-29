@@ -25,7 +25,7 @@ public class OperationsController {
     @Autowired
     private BankOperations bankOperations;
 
-    @RequestMapping("/balance")
+    @RequestMapping(value = "/balance", method = RequestMethod.GET)
     public long getBalanceForUser(@RequestHeader("Authorization") String accessToken) throws Exception {
         String username = securityManager.authorizeForUser(accessToken);
         return bankOperations.getBalanceForUser(username);
