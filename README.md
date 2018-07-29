@@ -20,13 +20,13 @@ To explore API and test
 * Start the server by following the steps below
 * Visit `http://localhost:8888/swagger-ui.html`
 
-### Prerequisites
+## Prerequisites
 
 * Java 8
 * Docker
 * MongoDB
 
-### Running the Server
+## Running the Server
 
 The project is integrated with [maven](https://maven.apache.org/) and [docker](https://www.docker.com/)
 
