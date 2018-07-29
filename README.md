@@ -40,7 +40,7 @@ The above command does the following
 
 * Starts bank service server in a docker container
 * Starts bank service mongo database in another docker container
-* It Links both container
+* It Links both the containers
 
 Once the above step is executed you can access REST API's of bank service at `http://localhost:8888`
 
@@ -72,3 +72,4 @@ Explain how to run the automated tests for this system
 * [MongoDB](https://www.mongodb.com/) - Database for storing data
 * [JJWT](https://github.com/jwtk/jjwt) - JSON Web Token Library by Okta
 * [Springfox Swagger 2](https://springfox.github.io/springfox/docs/current/#springfox-swagger-ui) - API Documentation and testing
+* [Junit](https://junit.org/junit4/) - Test framework used
